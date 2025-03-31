@@ -1,10 +1,19 @@
 #include <iostream>
+#include <cstdint>
 #include <string.h>
 #include <errno.h>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#define MOUSE_ICON_FILE "mouse_icon.png"
+
+typedef struct {
+  double x, y;
+} Vec2;
 
 bool is_key_pressed(GLFWwindow *window, int keycode) {
     int state = glfwGetKey(window, keycode);
@@ -16,44 +25,107 @@ bool is_mouse_button_pressed(GLFWwindow *window, int button) {
     return state == GLFW_PRESS;
 }
 
+bool should_quit(GLFWwindow *window) {
+  return is_key_pressed(window, GLFW_KEY_ESCAPE) || is_key_pressed(window, GLFW_KEY_Q) || glfwWindowShouldClose(window);
+}
+
+Vec2 get_mouse_pos(GLFWwindow *window) {
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    return Vec2{ .x = xpos, .y = ypos };
+}
+
 void resize_callback(GLFWwindow* window, int width, int height) {
   glfwGetWindowSize(window, &width, &height);
   glViewport(0, 0, width, height);
 }
 
-void draw(GLFWwindow* window) {
-  glClearColor(0.2, 0.3, 0.3, 1.0);
-
-  /* Clears color buffer to the RGBA defined values. */
-  glClear(GL_COLOR_BUFFER_BIT);
-
-
-  /* Demand to draw to the window.*/
-  glfwSwapBuffers(window);
-}
-
 void loop(GLFWwindow *window) {
 
-  int width, height;
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  
+  int width = 0;
+  int height = 0;
+  Vec2 mouse_pos = {0};
+
+  int m_width = 0;
+  int m_height = 0;
+  int channels_in_file = 0;
+  
+  uint8_t *image_buffer = stbi_load(MOUSE_ICON_FILE, &m_width, &m_height, &channels_in_file, 4);
+  if (image_buffer == nullptr) {
+    std::cerr << "Could not load image!" << std::endl;
+    std::cerr << "STB Image Error: " << stbi_failure_reason() << std::endl;
+    std::cerr << "error: " << strerror(errno) << std::endl;
+    exit(1);
+  }
+ 
+  GLFWimage image;
+  image.width = m_width;
+  image.height = m_height;
+  image.pixels = image_buffer;
+  
+  GLFWcursor* cursor = glfwCreateCursor(&image, 0, 0);
+  if (cursor == nullptr) {
+    std::cerr << "Could not create glfw cursor!" << std::endl;
+    std::cerr << "error: " << strerror(errno) << std::endl;
+    exit(1);
+  }
+
+  if (image_buffer) {
+    stbi_image_free(image_buffer);
+  }
+  
+  glfwSetCursor(window, cursor);
+
+  
   bool quit = false;
   glfwSetFramebufferSizeCallback(window, resize_callback);
 
   while (!quit) {
     glfwPollEvents();
-    quit = is_key_pressed(window, GLFW_KEY_ESCAPE) || glfwWindowShouldClose(window);
+
+    quit = should_quit(window);
+
     glfwGetWindowSize(window, &width, &height);
-    std::cout << "width: " << width << std::endl;
-    std::cout << "height: " << height << std::endl;
-    draw(window);
+    mouse_pos = get_mouse_pos(window);
+    // std::cout << "width: " << width << std::endl;
+    // std::cout << "height: " << height << std::endl;
+    // std::cout << "x: " << mouse_pos.x << std::endl;
+    // std::cout << "y: " << mouse_pos.y << std::endl;
+
+    // draw
+    {
+      glClearColor(0.2, 0.3, 0.3, 1.0);
+
+      /* Clears color buffer to the RGBA defined values. */
+      glClear(GL_COLOR_BUFFER_BIT);
+      
+      /* Demand to draw to the window.*/
+      glfwSwapBuffers(window);
+    }
+    
+
+    if (is_mouse_button_pressed(window, GLFW_MOUSE_BUTTON_LEFT)) {
+      glClearColor(0.99, 0.3, 0.3, 1.0);
+
+      /* Clears color buffer to the RGBA defined values. */
+      glClear(GL_COLOR_BUFFER_BIT);
+
+      /* Demand to draw to the window.*/
+      glfwSwapBuffers(window);      
+    }
   }
+  glfwDestroyCursor(cursor);
 }
 
 int main(void) {
   std::cout << "hello, world!" << std::endl;
 
   if (!glfwInit()) {
-    std::cout << "Could not initialize glfw!\n";
-    std::cout << "error: " << strerror(errno);
+    std::cerr << "Could not initialize glfw!" << std::endl;
+    std::cerr << "error: " << strerror(errno) << std::endl;
     exit(1);
   }
 
@@ -65,14 +137,14 @@ int main(void) {
   glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 
-  const char *title = "main";
+  const char *title = "main.cpp - pizza";
 
   GLFWwindow *window = glfwCreateWindow(640, 480, title, nullptr, nullptr);
   
   if (window == nullptr) {
     glfwTerminate();
-    std::cout << "Could not create glfw window!\n";
-    std::cout << "error: " << strerror(errno);
+    std::cerr << "Could not create glfw window!" << std::endl;
+    std::cerr << "error: " << strerror(errno) << std::endl;
     exit(1);
   }
 
@@ -80,8 +152,8 @@ int main(void) {
   
   uint32_t err = glewInit();
   if (GLEW_OK != err) {
-    std::cout << "GLEW initialization error!\n" ;
-    std::cout << "error: " << strerror(errno);
+    std::cerr << "GLEW initialization error!" << std::endl;
+    std::cerr << "error: " << strerror(errno);
   }
 
   std::cout << glGetString(GL_VERSION) << std::endl;

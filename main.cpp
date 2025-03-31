@@ -87,25 +87,13 @@ void loop(GLFWwindow *window) {
     glfwPollEvents();
 
     quit = should_quit(window);
-
+    //glfwSwapInterval(1);
     glfwGetWindowSize(window, &width, &height);
     mouse_pos = get_mouse_pos(window);
     // std::cout << "width: " << width << std::endl;
     // std::cout << "height: " << height << std::endl;
     // std::cout << "x: " << mouse_pos.x << std::endl;
     // std::cout << "y: " << mouse_pos.y << std::endl;
-
-    // draw
-    {
-      glClearColor(0.2, 0.3, 0.3, 1.0);
-
-      /* Clears color buffer to the RGBA defined values. */
-      glClear(GL_COLOR_BUFFER_BIT);
-      
-      /* Demand to draw to the window.*/
-      glfwSwapBuffers(window);
-    }
-    
 
     if (is_mouse_button_pressed(window, GLFW_MOUSE_BUTTON_LEFT)) {
       glClearColor(0.99, 0.3, 0.3, 1.0);
@@ -115,6 +103,19 @@ void loop(GLFWwindow *window) {
 
       /* Demand to draw to the window.*/
       glfwSwapBuffers(window);      
+    } else {
+      // draw
+      {
+	glClearColor(0.2, 0.3, 0.3, 1.0);
+
+	/* Clears color buffer to the RGBA defined values. */
+	glClear(GL_COLOR_BUFFER_BIT);
+      
+	/* Demand to draw to the window.*/
+	glfwSwapBuffers(window);
+      }
+    
+
     }
   }
   glfwDestroyCursor(cursor);

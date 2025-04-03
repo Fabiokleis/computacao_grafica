@@ -106,7 +106,7 @@ void loop(GLFWwindow *window) {
     } else {
       // draw
       {
-	glClearColor(0.2, 0.3, 0.3, 1.0);
+	glClearColor(1.0 * (mouse_pos.x/1000.0f), 1.0 * (mouse_pos.y/1000.0f), 1.0 * (((mouse_pos.x + mouse_pos.y) / 2) / 1000.0f), 1.0);
 
 	/* Clears color buffer to the RGBA defined values. */
 	glClear(GL_COLOR_BUFFER_BIT);

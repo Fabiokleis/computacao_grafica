@@ -6,61 +6,39 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <glm/mat4x4.hpp> // glm::mat4
+#include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #define MOUSE_ICON_FILE "mouse_icon.png"
 
+#define WIDTH 640
+#define HEIGHT 480
+
 
 const static char *vertex_shader_source = "#version 330 core\n"
-  "layout (location = 0) in vec3 pos;\n"
-  "layout (location = 1) in vec3 v_color;\n"
-  "out vec3 color;\n"
+  "layout (location = 0) in vec4 pos;\n"
+  "layout (location = 1) in vec4 v_color;\n"
+  "uniform mat4 v_translate;"
+  "out vec4 color;\n"
   "void main()\n"
   "{\n"
-  "   gl_Position = vec4(pos, 1.0);\n"
+  "   gl_Position = vec4(v_translate * pos);\n"
       "color = v_color\n;"
   "}\0";
+
+// (color * v_color) * v_time
 const static char *fragment_shader_source = "#version 330 core\n"
-  "in vec3 color;\n"
+  "in vec4 color;\n"
   "out vec4 FragColor;\n"
-  "uniform vec4 ourColor;\n"
+  "uniform vec4 v_color;\n"
+  "uniform float v_time;\n"
   "void main()\n"
   "{\n"
-  "   FragColor = vec4(ourColor);\n"
+  "   FragColor = vec4((color * v_color) * v_time);\n"
   "}\n\0";
-
-
-typedef struct {
-  double x, y;
-} Vec2;
-
-bool is_key_pressed(GLFWwindow *window, int keycode) {
-    int state = glfwGetKey(window, keycode);
-    return state == GLFW_PRESS || state == GLFW_REPEAT;
-}
-
-bool is_mouse_button_pressed(GLFWwindow *window, int button) {
-    int state = glfwGetMouseButton(window, button);
-    return state == GLFW_PRESS;
-}
-
-bool should_quit(GLFWwindow *window) {
-  return is_key_pressed(window, GLFW_KEY_ESCAPE) || is_key_pressed(window, GLFW_KEY_Q) || glfwWindowShouldClose(window);
-}
-
-Vec2 get_mouse_pos(GLFWwindow *window) {
-    double xpos, ypos;
-    glfwGetCursorPos(window, &xpos, &ypos);
-
-    return Vec2{ .x = xpos, .y = ypos };
-}
-
-void resize_callback(GLFWwindow* window, int width, int height) {
-  glfwGetWindowSize(window, &width, &height);
-  glViewport(0, 0, width, height);
-}
-
 
 int compile_shaders(uint32_t *shader_program) {
 
@@ -105,6 +83,104 @@ int compile_shaders(uint32_t *shader_program) {
   glDeleteShader(vertex_shader);
   glDeleteShader(fragment_shader);
   return 0;
+}
+
+
+typedef struct {
+  double x, y;
+} Vec2;
+
+typedef enum {
+  R,
+  G,
+  B,
+  A
+} ColorChannel;
+
+typedef struct {
+  float x, y, z, w;
+} Position;
+
+typedef struct {
+  float r, g, b, a;
+} Color;
+
+typedef struct {
+  Position position;
+  Color color;
+} Vertex;
+
+
+typedef struct {
+  uint32_t idxs[3]; // triangle vertexs
+  glm::mat4 translation;
+} Triangle;
+
+bool is_key_pressed(GLFWwindow *window, int keycode) {
+    int state = glfwGetKey(window, keycode);
+    return state == GLFW_PRESS; // || state == GLFW_REPEAT;
+}
+
+bool is_mouse_button_pressed(GLFWwindow *window, int button) {
+    int state = glfwGetMouseButton(window, button);
+    return state == GLFW_PRESS;
+}
+
+bool should_quit(GLFWwindow *window) {
+  return is_key_pressed(window, GLFW_KEY_ESCAPE) || is_key_pressed(window, GLFW_KEY_Q) || glfwWindowShouldClose(window);
+}
+
+Vec2 get_mouse_pos(GLFWwindow *window) {
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    return Vec2{ .x = xpos, .y = ypos };
+}
+
+void resize_callback(GLFWwindow* window, int width, int height) {
+  glfwGetWindowSize(window, &width, &height);
+  glViewport(0, 0, width, height);
+}
+
+#define MAX_TRIANGLES 1000
+#define MAX_VERTEX_COUNT MAX_TRIANGLES * 3
+#define MAX_IDX_COUNT MAX_TRIANGLES * 3
+
+uint32_t put_vertice(uint32_t idx, Vertex vertices[MAX_VERTEX_COUNT], Position pos, Color color) {
+  vertices[idx].position = pos;
+  vertices[idx].color = color;
+  return idx;
+}
+
+Triangle put_triangle(uint32_t *idx, Vertex vertices[MAX_VERTEX_COUNT], Vec2 mouse_pos, Color color) {
+  uint32_t idx_v1 = put_vertice(*idx, vertices, (Position){ .x = -0.2, .y = -0.2, .z = 0.0f, .w = 1.0f }, color);
+  (*idx)++;
+  uint32_t idx_v2 = put_vertice(*idx, vertices, (Position){ .x = 0.2, .y = -0.2, .z = 0.0f, .w = 1.0f }, color);
+  (*idx)++;
+  uint32_t idx_v3 = put_vertice(*idx, vertices, (Position){ .x = 0.0f, .y = 0.2, .z = 0.0f, .w = 1.0f }, color);
+  (*idx)++;
+
+  float x = (((float)mouse_pos.x - (WIDTH/2) + (WIDTH * 0.2f)) / WIDTH);
+  float y = (((float)mouse_pos.y - (HEIGHT/2) + (WIDTH * 0.2f)) / HEIGHT);
+
+
+  return (Triangle){
+    .idxs = { idx_v1, idx_v2, idx_v3 },
+    .translation = glm::translate(glm::mat4(1.0f), glm::vec3(x, -y, 0.0f)),
+  };
+}
+
+void draw_triangles(uint32_t VAO, uint32_t program, Vertex *vertices, uint32_t tidx, Triangle triangles[MAX_TRIANGLES]) {
+
+  for (uint32_t i = 0; i < tidx; ++i) {
+    Triangle triangle = triangles[i];
+    
+    int v_translate = glGetUniformLocation(program, "v_translate");
+    glUniformMatrix4fv(v_translate, 1, GL_FALSE, &triangle.translation[0][0]);
+
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+  }
 }
 
 void loop(GLFWwindow *window) {
@@ -152,43 +228,47 @@ void loop(GLFWwindow *window) {
   uint32_t program;
   int error = compile_shaders(&program);
   if (error != 0) exit(1);
-  
-  // ------------------------------------------------------------------
-  float vertices[] = {
-    0.5f,  0.5f, 0.0f, 0.5f, 0.1, 0.8, // x y z rgb
-    0.5f, -0.5f, 0.0f, 0.5f, 0.1, 0.8,
-    -0.5f,  -0.5f, 0.0f, 0.5f, 0.1, 0.8,
-    -0.5f,  0.5f, 0.0f, 0.5f, 0.1, 0.8,
-  };
-  uint32_t indices[] = {  // note that we start from 0!
-    0, 1, 3,  // first Triangle
-    1, 2, 3   // second Triangle
-  };
 
-  uint32_t VBO, VAO, EBO;
+
+  Triangle triangles[MAX_TRIANGLES];
+  uint32_t tidx = 0;
+
+  uint32_t idx = 0;
+
+  Vertex vertices[MAX_VERTEX_COUNT];
+
+  Color color = (Color){ .r = 0.5f, .g = 0.5f, .b = 0.5f, .a = 1.0f };
+  
+  uint32_t VAO, VBO;
+
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
-  glGenBuffers(1, &EBO);
 
   glBindVertexArray(VAO);
-
+  
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+  
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
   glEnableVertexAttribArray(0);
 
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3*sizeof(float)));
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
   glEnableVertexAttribArray(1);
 
   glBindBuffer(GL_ARRAY_BUFFER, 0); 
 
 
+  float start_time = glfwGetTime();
+  float delta = 0.0f;
+  float total_time = 0.0f;
+  float cycle_time = 0.0f;
+
+  ColorChannel selected = R;
+  
   while (!quit) {
     glfwPollEvents();
+
+    if (cycle_time >= 4.0f) cycle_time = 0.0f;
 
     quit = should_quit(window);
     //glfwSwapInterval(1);
@@ -197,28 +277,71 @@ void loop(GLFWwindow *window) {
 
     if (is_mouse_button_pressed(window, GLFW_MOUSE_BUTTON_LEFT)) {
       glClearColor(0.99, 0.3, 0.3, 1.0);
+      selected = (ColorChannel)((selected + 1) % 4);
+
+      if (tidx < MAX_TRIANGLES) {
+	Triangle triangle = put_triangle(&idx, vertices, mouse_pos, color);
+	triangles[tidx++] = triangle;
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+      }
+
     } else {
       // draw
       {
 	glClearColor(1.0 * (mouse_pos.x/1000.0f), 1.0 * (mouse_pos.y/1000.0f), 1.0 * (((mouse_pos.x + mouse_pos.y) / 2) / 1000.0f), 1.0);
       }
     }
-
-    /* Clears color buffer to the RGBA defined values. */
+    
     glClear(GL_COLOR_BUFFER_BIT);
+  
+    /* Clears color buffer to the RGBA defined values. */
 
+    delta = glfwGetTime() - start_time;
 
-    float timeValue = glfwGetTime();
-    float greenValue = (sin(timeValue * 2.0f) / 2.0f) + 0.5f;
-    int vertexColorLocation = glGetUniformLocation(program, "ourColor");
+    start_time = glfwGetTime();
+    total_time += delta;
+    cycle_time += delta;
+    
+    float intensity_value = (sin(cycle_time) / 2.0f) + 0.5f;
+    int v_color_location = glGetUniformLocation(program, "v_color");
+    int v_time_color_location = glGetUniformLocation(program, "v_time");
+
     glUseProgram(program);
-    glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+    switch (selected) {
+    case R:
+      color.r = intensity_value;
+      break;
+    case G:
+      color.g = intensity_value;
+      break;
+    case B:
+      color.b = intensity_value;
+      break;
+    case A:
+      color.a = intensity_value;
+      break;
+    }
+    glUniform4f(v_color_location, color.r, color.g, color.b, color.a);
+    glUniform1f(v_time_color_location, cycle_time);
+
+    /* draw all triangles created */
+
     
     /* Demand to draw to the window.*/
     //glUseProgram(program);
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, sizeof(indices), GL_UNSIGNED_INT, 0);
+    //glBindVertexArray(VAO);
     //glDrawArrays(GL_TRIANGLES, 0, 3);
+    //glDrawElements(GL_TRIANGLES, idx, GL_UNSIGNED_INT, 0);
+
+    draw_triangles(VAO, program, vertices, tidx, triangles);
+    
+    std::cout << "selected channel: " << selected << std::endl;
+    std::cout << "mouse x:" << mouse_pos.x << std::endl;
+    std::cout << "mouse y:" << mouse_pos.y << std::endl;
+    std::cout << "total triangles: " << tidx << std::endl;
+    //std::cout << "cicle time: " << cycle_time << std::endl;
     
     glfwSwapBuffers(window);
   }
@@ -244,7 +367,7 @@ int main(void) {
 
   const char *title = "main.cpp - pizza";
 
-  GLFWwindow *window = glfwCreateWindow(640, 480, title, nullptr, nullptr);
+  GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, title, nullptr, nullptr);
   
   if (window == nullptr) {
     glfwTerminate();

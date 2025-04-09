@@ -1,6 +1,6 @@
 CC = g++
 
-GLLIBS = -lglfw -lGLEW -lGL
+GLLIBS = -lglfw -lGLEW -lGL -lm
 
 
 all: main.cpp

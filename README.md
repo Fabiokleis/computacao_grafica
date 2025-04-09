@@ -2,7 +2,7 @@
 
 ### nix
 ```shell
-nix-shell -p gcc libGL glfw glew
+nix-shell -p gcc libGL glfw glew glm
 ```
 ### build
 ```shell

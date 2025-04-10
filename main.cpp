@@ -286,12 +286,23 @@ void loop(GLFWwindow *window) {
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
       }
 
+    } else if (is_mouse_button_pressed(window, GLFW_MOUSE_BUTTON_RIGHT)) {
+      glClearColor(0.99, 0.3, 0.3, 1.0);
+
+      if (tidx > 0) {
+	tidx--;
+	idx -= 3;
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+      }
+      
     } else {
       // draw
       {
 	glClearColor(1.0 * (mouse_pos.x/1000.0f), 1.0 * (mouse_pos.y/1000.0f), 1.0 * (((mouse_pos.x + mouse_pos.y) / 2) / 1000.0f), 1.0);
       }
     }
+    
     
     glClear(GL_COLOR_BUFFER_BIT);
   

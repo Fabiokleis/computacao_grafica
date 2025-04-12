@@ -139,29 +139,24 @@ typedef struct {
   uint32_t idxs[2]; // line vertexs
 } Line;
 
-
 uint32_t put_vertice(uint32_t idx, Vertex vertices[MAX_VERTEX_COUNT], Position pos, Color color) {
   vertices[idx].position = pos;
   vertices[idx].color = color;
-  vertices[idx].size = 20.0f;
+  vertices[idx].size = 10.0f;
   return idx;
 }
 
-void draw_lines(uint32_t VAO, uint32_t program, Vertex *vertices, uint32_t lidx, Line lines[MAX_LINES]) {
+void draw(uint32_t VAO, uint32_t program, uint32_t idx, Vertex *vertices, uint32_t lidx, Line lines[MAX_LINES]) {
+  glBindVertexArray(VAO);
+  glDrawArrays(GL_POINTS, 0, idx);
+  
   glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
   uint32_t v_model = glGetUniformLocation(program, "v_transform");
   glUniformMatrix4fv(v_model, 1, GL_FALSE, &model[0][0]);
   
   for (uint32_t i = 0; i < lidx; ++i) {
     Line line = lines[i];
-
-    glBindVertexArray(VAO);
-
-    // draw
-    {
-      glDrawArrays(GL_POINTS, line.idxs[0], 3);
-      glDrawArrays(GL_LINES, line.idxs[0], 2);
-    }
+    glDrawArrays(GL_LINES, line.idxs[0], 2);
   }
 }
 
@@ -277,20 +272,20 @@ void loop(GLFWwindow *window) {
 	glClearColor(0.99, 0.3, 0.3, 1.0);
 
 	if (total_click < 3) {
-	  float x = ((float)mouse_pos.x / WIDTH);
-	  float y = ((float)mouse_pos.y / HEIGHT);
+	  float x = (2.0f * (float)mouse_pos.x) / WIDTH - 1.0f;
+	  float y = 1.0f - (2.0f * (float)mouse_pos.y) / HEIGHT;
 
 	  switch (total_click) {
 	  case 0: {
-	    put_vertice(idx, vertices, (Position){ .x = x, .y = -y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f });
+	    put_vertice(idx, vertices, (Position){ .x = x, .y = y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f });
 	  } break;
 	  case 1: {
-	    put_vertice(idx, vertices, (Position){ .x = x, .y = -y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 1.0f, .b = 0.0f, .a = 1.0f });
+	    put_vertice(idx, vertices, (Position){ .x = x, .y = y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 1.0f, .b = 0.0f, .a = 1.0f });
 	    lines[lidx] = (Line){ .idxs = { idx-1, idx } };
 	    lidx++;
 	  } break;
 	  case 2: {
-	    put_vertice(idx, vertices, (Position){ .x = x, .y = -y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 0.0f, .b = 1.0f, .a = 1.0f });
+	    put_vertice(idx, vertices, (Position){ .x = x, .y = y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 0.0f, .b = 1.0f, .a = 1.0f });
 	    lines[lidx] = (Line){ .idxs = { idx-1, idx } };
 	    lidx++;
 	  } break;
@@ -304,8 +299,6 @@ void loop(GLFWwindow *window) {
 	total_click++;
       } 
 
-    } else if (is_mouse_button_pressed(window, GLFW_MOUSE_BUTTON_RIGHT)) {
-      glClearColor(0.99, 0.3, 0.3, 1.0);
     } else {
       // draw
       {
@@ -318,14 +311,13 @@ void loop(GLFWwindow *window) {
 
     glUseProgram(program);
 
-    draw_lines(VAO, program, vertices, lidx, lines);
+    draw(VAO, program, idx, vertices, lidx, lines);
     
     std::cout << "mouse x: " << mouse_pos.x << std::endl;
     std::cout << "mouse y: " << mouse_pos.y << std::endl;
     std::cout << "total clicks: " << total_click << std::endl;
     std::cout << "total vertices: " << idx << std::endl;
     std::cout << "total lines: " << lidx << std::endl;
-    //std::cout << "cicle time: " << cycle_time << std::endl;
     
     glfwSwapBuffers(window);
     glfwPollEvents();

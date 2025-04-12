@@ -161,13 +161,12 @@ Triangle put_triangle(uint32_t *idx, Vertex vertices[MAX_VERTEX_COUNT], Vec2 mou
   (*idx)++;
 
 
-  float x = (((float)mouse_pos.x - (WIDTH/2) + (WIDTH * 0.2f)) / WIDTH);
-  float y = (((float)mouse_pos.y - (HEIGHT/2) + (WIDTH * 0.2f)) / HEIGHT);
-
+  float x = (2.0f * (float)mouse_pos.x) / WIDTH - 1.0f;
+  float y = 1.0f - (2.0f * (float)mouse_pos.y) / HEIGHT;
 
   return (Triangle){
     .idxs = { idx_v1, idx_v2, idx_v3 },
-    .translation = glm::translate(glm::mat4(1.0f), glm::vec3(x, -y, 0.0f)),
+    .translation = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f)),
   };
 }
 

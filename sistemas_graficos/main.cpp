@@ -10,9 +10,9 @@
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "../stb_image.h"
 
-#define MOUSE_ICON_FILE "mouse_icon.png"
+#define MOUSE_ICON_FILE "../mouse_icon.png"
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -152,13 +152,14 @@ uint32_t put_vertice(uint32_t idx, Vertex vertices[MAX_VERTEX_COUNT], Position p
   return idx;
 }
 
-Triangle put_triangle(uint32_t *idx, Vertex vertices[MAX_VERTEX_COUNT], Vec2 mouse_pos, Color color) {
-  uint32_t idx_v1 = put_vertice(*idx, vertices, (Position){ .x = -0.2, .y = -0.2, .z = 0.0f, .w = 1.0f }, color);
+Triangle put_triangle(uint32_t *idx, Vertex vertices[MAX_VERTEX_COUNT], Vec2 mouse_pos) {
+  uint32_t idx_v1 = put_vertice(*idx, vertices, (Position){ .x = -0.2, .y = -0.2, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f });
   (*idx)++;
-  uint32_t idx_v2 = put_vertice(*idx, vertices, (Position){ .x = 0.2, .y = -0.2, .z = 0.0f, .w = 1.0f }, color);
+  uint32_t idx_v2 = put_vertice(*idx, vertices, (Position){ .x = 0.2, .y = -0.2, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 1.0f, .b = 0.0f, .a = 1.0f });
   (*idx)++;
-  uint32_t idx_v3 = put_vertice(*idx, vertices, (Position){ .x = 0.0f, .y = 0.2, .z = 0.0f, .w = 1.0f }, color);
+  uint32_t idx_v3 = put_vertice(*idx, vertices, (Position){ .x = 0.0f, .y = 0.2, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 0.0f, .b = 1.0f, .a = 1.0f });
   (*idx)++;
+
 
   float x = (((float)mouse_pos.x - (WIDTH/2) + (WIDTH * 0.2f)) / WIDTH);
   float y = (((float)mouse_pos.y - (HEIGHT/2) + (WIDTH * 0.2f)) / HEIGHT);
@@ -179,7 +180,7 @@ void draw_triangles(uint32_t VAO, uint32_t program, Vertex *vertices, uint32_t t
     glUniformMatrix4fv(v_translate, 1, GL_FALSE, &triangle.translation[0][0]);
 
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawArrays(GL_TRIANGLES, triangle.idxs[0], 3);
   }
 }
 
@@ -280,7 +281,7 @@ void loop(GLFWwindow *window) {
       selected = (ColorChannel)((selected + 1) % 4);
 
       if (tidx < MAX_TRIANGLES) {
-	Triangle triangle = put_triangle(&idx, vertices, mouse_pos, color);
+	Triangle triangle = put_triangle(&idx, vertices, mouse_pos);
 	triangles[tidx++] = triangle;
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);

@@ -8,9 +8,11 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/mat4x4.hpp> // glm::mat4
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
+#include <glm/glm.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "../stb_image.h"
@@ -146,19 +148,81 @@ uint32_t put_vertice(uint32_t idx, Vertex vertices[MAX_VERTEX_COUNT], Position p
   return idx;
 }
 
+glm::vec3 convert_coord_to_screen_normal(float x, float y) {
+  x = (x / 2.0f * WIDTH) - WIDTH;
+  y = HEIGHT - (y / 2.0f * HEIGHT);
+
+  return glm::vec3(x, y, 0.0f);
+}
+
 void draw(uint32_t VAO, uint32_t program, uint32_t idx, Vertex *vertices, uint32_t lidx, Line lines[MAX_LINES]) {
   glBindVertexArray(VAO);
-  glDrawArrays(GL_POINTS, 0, idx);
   
   glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
   uint32_t v_model = glGetUniformLocation(program, "v_transform");
   glUniformMatrix4fv(v_model, 1, GL_FALSE, &model[0][0]);
-  
-  for (uint32_t i = 0; i < lidx; ++i) {
+
+  if (idx == 4) {
+    Vertex P = vertices[1];
+    Vertex O = vertices[2];
+    Vertex Q = vertices[3];
+
+    Vertex u = (Vertex){
+      .position = (Position){
+	.x = P.position.x - O.position.x,
+	.y = P.position.y - O.position.y,
+	.z = 0.0f,
+	.w = 1.0f,
+      },
+    };
+    
+    Vertex v = (Vertex){
+      .position = (Position){
+	.x = Q.position.x - O.position.x,
+	.y = Q.position.y - O.position.y,
+	.z = 0.0f,
+	.w = 1.0f,
+      },
+    };
+
+    glm::vec3 u_coord = glm::vec3(u.position.x, u.position.y, 0.0f);
+    glm::vec3 v_coord = glm::vec3(v.position.x, v.position.y, 0.0f);
+
+    std::cout << "u: " << glm::to_string(u_coord) << std::endl;
+    std::cout << "v: " << glm::to_string(v_coord) << std::endl;
+
+    std::cout << "n u: " << glm::to_string(convert_coord_to_screen_normal(u_coord.x, u_coord.y)) << std::endl;
+    std::cout << "n v: " << glm::to_string(convert_coord_to_screen_normal(v_coord.x, v_coord.y)) << std::endl;
+
+    float prod_interno = glm::dot(u_coord, v_coord);
+    float lens = glm::length(u_coord) * glm::length(v_coord);
+
+    float angle = glm::acos(prod_interno / lens);
+
+    std::cout << "produto interno: " << prod_interno << std::endl;
+    std::cout << "magnitude u: " << glm::length(u_coord) << std::endl;
+    std::cout << "magnitude v: " << glm::length(v_coord) << std::endl;
+    std::cout << prod_interno << "/(" << glm::length(u_coord) << "*" << glm::length(v_coord) << ") =" << " cosΘ" << std::endl;
+    std::cout << "arc cos " << prod_interno / lens << " = " << angle << std::endl;
+
+    glm::vec2 prod_vetorial = glm::cross(u_coord, v_coord);
+    std::cout << "u x v: " << glm::to_string(prod_vetorial) << std::endl;
+  }
+
+  glDrawArrays(GL_POINTS, 0, idx);    
+  for (uint32_t i = 0; i <= lidx; ++i) {
     Line line = lines[i];
+    
     glDrawArrays(GL_LINES, line.idxs[0], 2);
   }
 }
+
+// glm::vec3 convert_coord_to_gl_normal(float x, float y) {
+//   float x = (2.0f * (*x)) / WIDTH - 1.0f;
+//   float y = 1.0f - (2.0f * (*y)) / HEIGHT;
+
+//   return glm::vec3(x, y, 0.0f);
+// }
 
 void loop(GLFWwindow *window) {
 
@@ -212,6 +276,9 @@ void loop(GLFWwindow *window) {
   Vertex vertices[MAX_VERTEX_COUNT];
   uint32_t idx = 0;
 
+  put_vertice(idx, vertices, (Position){ .x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 1.0f, .b = 1.0f, .a = 1.0f });
+  idx++; // put origin
+
   uint32_t VAO, VBO;
 
   glGenVertexArrays(1, &VAO);
@@ -233,11 +300,9 @@ void loop(GLFWwindow *window) {
 
   glBindBuffer(GL_ARRAY_BUFFER, 0); 
 
-
   glEnable(GL_PROGRAM_POINT_SIZE);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_POINT_SMOOTH);
-
 
   float start_time = glfwGetTime();
   float delta = 0.0f;
@@ -297,8 +362,7 @@ void loop(GLFWwindow *window) {
 	}
 
 	total_click++;
-      } 
-
+      }
     } else {
       // draw
       {

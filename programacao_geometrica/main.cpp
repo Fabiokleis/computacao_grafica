@@ -19,12 +19,13 @@
 
 #define MOUSE_ICON_FILE "../mouse_icon.png"
 
-#define WIDTH 640
-#define HEIGHT 480
+#define WIDTH 860
+#define HEIGHT 640
 
-#define MAX_LINES 3
-#define MAX_VERTEX_COUNT MAX_LINES * 2
-#define MAX_IDX_COUNT MAX_LINES * 2
+// P O Q e a origem, vetor u e v
+#define MAX_LINES 2
+#define MAX_VERTEX_COUNT MAX_LINES * 2 + 1 + 3
+#define MAX_IDX_COUNT MAX_LINES * 2 + 1 + 3
 
 const static char *vertex_shader_source = "#version 330 core\n"
   "layout (location = 0) in vec4 v_pos;\n"
@@ -148,11 +149,17 @@ uint32_t put_vertice(uint32_t idx, Vertex vertices[MAX_VERTEX_COUNT], Position p
   return idx;
 }
 
-glm::vec3 convert_coord_to_screen_normal(float x, float y) {
-  x = (x / 2.0f * WIDTH) - WIDTH;
-  y = HEIGHT - (y / 2.0f * HEIGHT);
+glm::vec3 coord_to_screen_normal(float x, float y) {
+  return glm::vec3(((x + 1.0f) * (WIDTH / 2.0f)), ((1.0f - y) * (HEIGHT / 2.0f)), 0.0f);
+}
 
-  return glm::vec3(x, y, 0.0f);
+// mouse offset 1 -1
+glm::vec3 mouse_to_gl_point(float x, float y) {
+  return glm::vec3((2.0f * x) / WIDTH - 1.0f, 1.0f - (2.0f * y) / HEIGHT, 0.0f);
+}
+
+glm::vec3 coord_to_gl_normal(float x, float y) {
+  return glm::vec3((2.0f * x) / WIDTH, (-2.0f * y) / HEIGHT, 0.0f);
 }
 
 void draw(uint32_t VAO, uint32_t program, uint32_t idx, Vertex *vertices, uint32_t lidx, Line lines[MAX_LINES]) {
@@ -162,67 +169,12 @@ void draw(uint32_t VAO, uint32_t program, uint32_t idx, Vertex *vertices, uint32
   uint32_t v_model = glGetUniformLocation(program, "v_transform");
   glUniformMatrix4fv(v_model, 1, GL_FALSE, &model[0][0]);
 
-  if (idx == 4) {
-    Vertex P = vertices[1];
-    Vertex O = vertices[2];
-    Vertex Q = vertices[3];
-
-    Vertex u = (Vertex){
-      .position = (Position){
-	.x = P.position.x - O.position.x,
-	.y = P.position.y - O.position.y,
-	.z = 0.0f,
-	.w = 1.0f,
-      },
-    };
-    
-    Vertex v = (Vertex){
-      .position = (Position){
-	.x = Q.position.x - O.position.x,
-	.y = Q.position.y - O.position.y,
-	.z = 0.0f,
-	.w = 1.0f,
-      },
-    };
-
-    glm::vec3 u_coord = glm::vec3(u.position.x, u.position.y, 0.0f);
-    glm::vec3 v_coord = glm::vec3(v.position.x, v.position.y, 0.0f);
-
-    std::cout << "u: " << glm::to_string(u_coord) << std::endl;
-    std::cout << "v: " << glm::to_string(v_coord) << std::endl;
-
-    std::cout << "n u: " << glm::to_string(convert_coord_to_screen_normal(u_coord.x, u_coord.y)) << std::endl;
-    std::cout << "n v: " << glm::to_string(convert_coord_to_screen_normal(v_coord.x, v_coord.y)) << std::endl;
-
-    float prod_interno = glm::dot(u_coord, v_coord);
-    float lens = glm::length(u_coord) * glm::length(v_coord);
-
-    float angle = glm::acos(prod_interno / lens);
-
-    std::cout << "produto interno: " << prod_interno << std::endl;
-    std::cout << "magnitude u: " << glm::length(u_coord) << std::endl;
-    std::cout << "magnitude v: " << glm::length(v_coord) << std::endl;
-    std::cout << prod_interno << "/(" << glm::length(u_coord) << "*" << glm::length(v_coord) << ") =" << " cosΘ" << std::endl;
-    std::cout << "arc cos " << prod_interno / lens << " = " << angle << std::endl;
-
-    glm::vec2 prod_vetorial = glm::cross(u_coord, v_coord);
-    std::cout << "u x v: " << glm::to_string(prod_vetorial) << std::endl;
-  }
-
-  glDrawArrays(GL_POINTS, 0, idx);    
-  for (uint32_t i = 0; i <= lidx; ++i) {
+  for (uint32_t i = 0; i < lidx; i++) {
     Line line = lines[i];
-    
     glDrawArrays(GL_LINES, line.idxs[0], 2);
   }
+
 }
-
-// glm::vec3 convert_coord_to_gl_normal(float x, float y) {
-//   float x = (2.0f * (*x)) / WIDTH - 1.0f;
-//   float y = 1.0f - (2.0f * (*y)) / HEIGHT;
-
-//   return glm::vec3(x, y, 0.0f);
-// }
 
 void loop(GLFWwindow *window) {
 
@@ -330,6 +282,7 @@ void loop(GLFWwindow *window) {
     glfwGetWindowSize(window, &width, &height);
     mouse_pos = get_mouse_pos(window);
 
+
     if (is_mouse_button_pressed(window, GLFW_MOUSE_BUTTON_LEFT)) {
       if (start_time - click_time > threshold) {
 
@@ -337,22 +290,18 @@ void loop(GLFWwindow *window) {
 	glClearColor(0.99, 0.3, 0.3, 1.0);
 
 	if (total_click < 3) {
-	  float x = (2.0f * (float)mouse_pos.x) / WIDTH - 1.0f;
-	  float y = 1.0f - (2.0f * (float)mouse_pos.y) / HEIGHT;
+
+	  glm::vec3 point = mouse_to_gl_point((float)mouse_pos.x, (float)mouse_pos.y);
 
 	  switch (total_click) {
 	  case 0: {
-	    put_vertice(idx, vertices, (Position){ .x = x, .y = y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f });
+	    put_vertice(idx, vertices, (Position){ .x = point.x, .y = point.y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f });
 	  } break;
 	  case 1: {
-	    put_vertice(idx, vertices, (Position){ .x = x, .y = y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 1.0f, .b = 0.0f, .a = 1.0f });
-	    lines[lidx] = (Line){ .idxs = { idx-1, idx } };
-	    lidx++;
+	    put_vertice(idx, vertices, (Position){ .x = point.x, .y = point.y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 1.0f, .b = 0.0f, .a = 1.0f });
 	  } break;
 	  case 2: {
-	    put_vertice(idx, vertices, (Position){ .x = x, .y = y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 0.0f, .b = 1.0f, .a = 1.0f });
-	    lines[lidx] = (Line){ .idxs = { idx-1, idx } };
-	    lidx++;
+	    put_vertice(idx, vertices, (Position){ .x = point.x, .y = point.y, .z = 0.0f, .w = 1.0f }, (Color){ .r = 0.0f, .g = 0.0f, .b = 1.0f, .a = 1.0f });
 	  } break;
 	  }
 	  idx++;
@@ -362,26 +311,154 @@ void loop(GLFWwindow *window) {
 	}
 
 	total_click++;
+	std::cout << "mouse x: " << mouse_pos.x << std::endl;
+	std::cout << "mouse y: " << mouse_pos.y << std::endl;
       }
+
     } else {
       // draw
       {
 	glClearColor(1.0 * (mouse_pos.x/1000.0f), 1.0 * (mouse_pos.y/1000.0f), 1.0 * (((mouse_pos.x + mouse_pos.y) / 2) / 1000.0f), 1.0);
+	//glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
       }
     }
+
+    if (idx == 4) {
+      // pula a origem
+      Vertex P = vertices[1];
+      Vertex O = vertices[2];
+      Vertex Q = vertices[3];
+
+      glm::vec3 p_pos = glm::vec3(P.position.x, P.position.y, 0.0f);
+      glm::vec3 o_pos = glm::vec3(O.position.x, O.position.y, 0.0f);
+      glm::vec3 q_pos = glm::vec3(Q.position.x, Q.position.y, 0.0f);
+
+      std::cout << "P gl " << glm::to_string(p_pos) << std::endl;
+      std::cout << "O gl " << glm::to_string(o_pos) << std::endl;
+      std::cout << "Q gl " << glm::to_string(q_pos) << std::endl;
     
+      glm::vec3 p_coord = coord_to_screen_normal(p_pos.x, p_pos.y);
+      glm::vec3 o_coord = coord_to_screen_normal(o_pos.x, o_pos.y);
+      glm::vec3 q_coord = coord_to_screen_normal(q_pos.x, q_pos.y);
+      std::cout << "P screen: " << glm::to_string(p_coord) << std::endl;
+      std::cout << "O screen: " << glm::to_string(o_coord) << std::endl;
+      std::cout << "Q screen: " << glm::to_string(q_coord) << std::endl;
+
+      glm::vec3 u_coord = p_coord - o_coord;
+      std::cout << "vector u: " << glm::to_string(u_coord) << std::endl;
+
+      glm::vec3 u_gl_coord = coord_to_gl_normal(u_coord.x, u_coord.y);
+      std::cout << "vector u gl: " << glm::to_string(u_gl_coord) << std::endl;
+
+      Vertex u = (Vertex){
+	.position = (Position){
+	  .x = u_gl_coord.x,
+	  .y = u_gl_coord.y,
+	  .z = 0.0f,
+	  .w = 1.0f,
+	},
+	.color = (Color){
+	  .r = P.color.r - O.color.r,
+	  .g = P.color.r - O.color.r,
+	  .b = P.color.r - O.color.r,
+	  .a = 1.0f	
+	}
+      };
+
+      uint32_t u_origem = put_vertice(idx, vertices, (Position){ .x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 1.0f, .b = 1.0f, .a = 1.0f });
+      idx++; // put origin
+      uint32_t u1 = put_vertice(idx, vertices, u.position, u.color);
+      idx++; // vertice
+
+      lines[lidx] = (Line){
+      	.idxs = { u_origem, u1 }
+      };
+      lidx++;
+      
+      glm::vec3 v_coord = q_coord - o_coord;
+      std::cout << "vector v: " << glm::to_string(v_coord) << std::endl;
+
+      glm::vec3 v_gl_coord = coord_to_gl_normal(v_coord.x, v_coord.y);
+      std::cout << "vector v gl: " << glm::to_string(v_gl_coord) << std::endl;
     
+      Vertex v = (Vertex){
+	.position = (Position){
+	  .x = v_gl_coord.x,
+	  .y = v_gl_coord.y,
+	  .z = 0.0f,
+	  .w = 1.0f,
+	},
+	.color = (Color){
+	  .r = Q.color.r - O.color.r,
+	  .g = Q.color.r - O.color.r,
+	  .b = Q.color.r - O.color.r,
+	  .a = 1.0f	
+	}
+      };
+
+      uint32_t v_origem = put_vertice(idx, vertices, (Position){ .x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f }, (Color){ .r = 1.0f, .g = 1.0f, .b = 1.0f, .a = 1.0f });
+      idx++; // put origin
+      uint32_t v1 = put_vertice(idx, vertices, v.position, v.color);
+      idx++; // vertice
+      
+      lines[lidx] = (Line){
+      	.idxs = { v_origem, v1 }
+      };
+      lidx++;
+      
+
+      // contas com os valores da screen
+      
+      float prod_interno = glm::dot(u_coord, v_coord);
+      float lens = glm::length(u_coord) * glm::length(v_coord);
+
+      float angle = glm::acos(prod_interno / lens);
+
+      std::cout << "produto interno: " << prod_interno << std::endl;
+      std::cout << "magnitude u: " << glm::length(u_coord) << std::endl;
+      std::cout << "magnitude v: " << glm::length(v_coord) << std::endl;
+      std::cout << prod_interno << "/(" << glm::length(u_coord) << "*" << glm::length(v_coord) << ") =" << " cosΘ" << std::endl;
+      std::cout << "arc cos " << prod_interno / lens << " = " << angle << std::endl;
+
+      //glm::vec3 prod_vetorial = glm::cross(u_coord, v_coord);
+
+      glm::vec3 prod_vetorial = glm::vec3(
+					  (u_coord.y * v_coord.z) - (u_coord.z * v_coord.y),
+					  (v_coord.x * u_coord.z) - (u_coord.x * v_coord.z),
+					  (u_coord.x * v_coord.y) - (u_coord.y * v_coord.x));
+      
+      std::cout << "u x v: " << glm::to_string(prod_vetorial) << std::endl;
+
+      glm::vec3 q_o = p_coord - o_coord;
+      glm::vec3 prod_v_qo = glm::cross(v_coord, q_o);
+
+      // area do paralelogramo e igual a norma do produto vetorial
+      // b*h = |v_coord x q_o|
+      // b = norma do vetor v
+      // h = |v_coord x q_o| / |v|
+      // h e a distancia do de v do ponto P
+      
+      //std::cout << "glm u x v: " << glm::to_string(glm_prod_vetorial) << std::endl;
+      std::cout << "distancia do ponto P de v: " << glm::length(prod_v_qo) / glm::length(v_coord) << std::endl;
+
+      // marca que 4 pontos foram adicionados para o opengl
+      glBindBuffer(GL_ARRAY_BUFFER, VBO);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+    }
+    
+
     glClear(GL_COLOR_BUFFER_BIT);
 
     glUseProgram(program);
 
+    //glBindVertexArray(VAO);
     draw(VAO, program, idx, vertices, lidx, lines);
+    glDrawArrays(GL_POINTS, 0, idx);
+
     
-    std::cout << "mouse x: " << mouse_pos.x << std::endl;
-    std::cout << "mouse y: " << mouse_pos.y << std::endl;
-    std::cout << "total clicks: " << total_click << std::endl;
-    std::cout << "total vertices: " << idx << std::endl;
-    std::cout << "total lines: " << lidx << std::endl;
+    // std::cout << "total clicks: " << total_click << std::endl;
+    //std::cout << "total vertices: " << idx << std::endl;
+    // std::cout << "total lines: " << lidx << std::endl;
     
     glfwSwapBuffers(window);
     glfwPollEvents();

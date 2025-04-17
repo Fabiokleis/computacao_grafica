@@ -149,17 +149,9 @@ uint32_t put_vertice(uint32_t idx, Vertex vertices[MAX_VERTEX_COUNT], Position p
   return idx;
 }
 
-glm::vec3 coord_to_screen_normal(float x, float y) {
-  return glm::vec3(((x + 1.0f) * (WIDTH / 2.0f)), ((1.0f - y) * (HEIGHT / 2.0f)), 0.0f);
-}
-
 // mouse offset 1 -1
 glm::vec3 mouse_to_gl_point(float x, float y) {
   return glm::vec3((2.0f * x) / WIDTH - 1.0f, 1.0f - (2.0f * y) / HEIGHT, 0.0f);
-}
-
-glm::vec3 coord_to_gl_normal(float x, float y) {
-  return glm::vec3((2.0f * x) / WIDTH, (-2.0f * y) / HEIGHT, 0.0f);
 }
 
 void draw(uint32_t VAO, uint32_t program, uint32_t idx, Vertex *vertices, uint32_t lidx, Line lines[MAX_LINES]) {
@@ -333,27 +325,18 @@ void loop(GLFWwindow *window) {
       glm::vec3 o_pos = glm::vec3(O.position.x, O.position.y, 0.0f);
       glm::vec3 q_pos = glm::vec3(Q.position.x, Q.position.y, 0.0f);
 
-      std::cout << "P gl " << glm::to_string(p_pos) << std::endl;
-      std::cout << "O gl " << glm::to_string(o_pos) << std::endl;
-      std::cout << "Q gl " << glm::to_string(q_pos) << std::endl;
-    
-      glm::vec3 p_coord = coord_to_screen_normal(p_pos.x, p_pos.y);
-      glm::vec3 o_coord = coord_to_screen_normal(o_pos.x, o_pos.y);
-      glm::vec3 q_coord = coord_to_screen_normal(q_pos.x, q_pos.y);
-      std::cout << "P screen: " << glm::to_string(p_coord) << std::endl;
-      std::cout << "O screen: " << glm::to_string(o_coord) << std::endl;
-      std::cout << "Q screen: " << glm::to_string(q_coord) << std::endl;
+      std::cout << "P: " << glm::to_string(p_pos) << std::endl;
+      std::cout << "O: " << glm::to_string(o_pos) << std::endl;
+      std::cout << "Q: " << glm::to_string(q_pos) << std::endl;
 
-      glm::vec3 u_coord = p_coord - o_coord;
+      glm::vec3 u_coord = p_pos - o_pos;
       std::cout << "vector u: " << glm::to_string(u_coord) << std::endl;
 
-      glm::vec3 u_gl_coord = coord_to_gl_normal(u_coord.x, u_coord.y);
-      std::cout << "vector u gl: " << glm::to_string(u_gl_coord) << std::endl;
 
       Vertex u = (Vertex){
 	.position = (Position){
-	  .x = u_gl_coord.x,
-	  .y = u_gl_coord.y,
+	  .x = u_coord.x,
+	  .y = u_coord.y,
 	  .z = 0.0f,
 	  .w = 1.0f,
 	},
@@ -375,16 +358,13 @@ void loop(GLFWwindow *window) {
       };
       lidx++;
       
-      glm::vec3 v_coord = q_coord - o_coord;
+      glm::vec3 v_coord = q_pos - o_pos;
       std::cout << "vector v: " << glm::to_string(v_coord) << std::endl;
-
-      glm::vec3 v_gl_coord = coord_to_gl_normal(v_coord.x, v_coord.y);
-      std::cout << "vector v gl: " << glm::to_string(v_gl_coord) << std::endl;
     
       Vertex v = (Vertex){
 	.position = (Position){
-	  .x = v_gl_coord.x,
-	  .y = v_gl_coord.y,
+	  .x = v_coord.x,
+	  .y = v_coord.y,
 	  .z = 0.0f,
 	  .w = 1.0f,
 	},
@@ -429,7 +409,7 @@ void loop(GLFWwindow *window) {
       
       std::cout << "u x v: " << glm::to_string(prod_vetorial) << std::endl;
 
-      glm::vec3 q_o = p_coord - o_coord;
+      glm::vec3 q_o = p_pos - o_pos;
       glm::vec3 prod_v_qo = glm::cross(v_coord, q_o);
 
       // area do paralelogramo e igual a norma do produto vetorial

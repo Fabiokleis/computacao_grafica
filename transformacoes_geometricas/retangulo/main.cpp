@@ -15,9 +15,9 @@
 #include <glm/gtx/string_cast.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "../stb_image.h"
+#include "../../stb_image.h"
 
-#define MOUSE_ICON_FILE "../mouse_icon.png"
+#define MOUSE_ICON_FILE "../../mouse_icon.png"
 
 #define WIDTH 860
 #define HEIGHT 640

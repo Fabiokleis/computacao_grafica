@@ -289,7 +289,7 @@ void loop(GLFWwindow *window) {
     -0.5f,  0.5f, -0.5f
   };
 
-  for (uint32_t i = 0; i < (sizeof(verts)/sizeof(verts[0]))-2; ++i) {
+  for (uint32_t i = 0; i < (sizeof(verts)/sizeof(verts[0]))-2; i += 3) {
     put_vertice(
       idx,
       vertices,

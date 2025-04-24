@@ -177,8 +177,8 @@ void draw(uint32_t VAO, uint32_t program, uint32_t idx, Vertex *vertices, Cube c
 
   glm::mat4 model = glm::mat4(1.0f);
   model = glm::translate(model, cube.translate);
-  model = glm::scale(model, cube.scale);
   model = glm::rotate(model, glm::radians(cube.angle * time), cube.axis);
+  model = glm::scale(model, cube.scale);
 
   projection = glm::perspective(glm::radians(45.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 

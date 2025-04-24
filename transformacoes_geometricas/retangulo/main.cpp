@@ -259,7 +259,7 @@ void loop(GLFWwindow *window) {
     .translate = translate,
     .scale = scale,
     .angle = angle,
-    .axis = glm::vec3(0.0f, 0.0f, 1.0f),
+    .axis = glm::vec3(1.0f, 1.0f, 1.0f),
   };
 
   Triangle t2 = (Triangle){
@@ -267,7 +267,7 @@ void loop(GLFWwindow *window) {
     .translate = translate,
     .scale = scale,
     .angle = angle,
-    .axis = glm::vec3(0.0f, 0.0f, 1.0f),
+    .axis = glm::vec3(1.0f, 1.0f, 1.0f),
   };
 
   triangles[0] = t1;

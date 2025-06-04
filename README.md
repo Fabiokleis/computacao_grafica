@@ -2,7 +2,7 @@
 
 ### nix
 ```shell
-nix-shell -p gcc libGL glfw glew glm
+nix-shell -p gcc libGL glfw glew glm pkg-config bear clang-tools
 ```
 ### build
 ```shell
@@ -12,3 +12,4 @@ make
 ```shell
 ./main
 ```
+

@@ -20,31 +20,39 @@
 
 #define MOUSE_ICON_FILE "../mouse_icon.png"
 
-#define WIDTH 860
-#define HEIGHT 640
+#define WIDTH 1280
+#define HEIGHT 900
 
 #define MAX_TRIANGLES 1000
 #define MAX_VERTEX_COUNT MAX_TRIANGLES * 3
 #define MAX_IDX_COUNT MAX_TRIANGLES * 3
 
-const static char *vertex_shader_source = "#version 330 core\n"
-  "layout (location = 0) in vec4 v_pos;\n"
-  "layout (location = 1) in vec4 v_color;\n"
-  "uniform mat4 v_transform;"
-  "out vec4 color;\n"
-  "void main()\n"
-  "{\n"
-  "   gl_Position = v_transform * v_pos;\n"
-  "   color = v_color\n;"
-  "}\0";
+const static char *vertex_shader_source = R"(
+  #version 330 core
+  layout (location = 0) in vec4 v_pos;
+  layout (location = 1) in vec4 v_color;
+  uniform mat4 v_transform;
+  out vec4 color;
+  void main()
+  {
+     gl_Position = v_transform * v_pos;
+     color = v_color;
+  }
+)";
 
 const static char *fragment_shader_source = R"(
   #version 330 core
   in vec4 color;
+  uniform vec4 v_bord_color;
   out vec4 FragColor;
   void main()
   {
-     FragColor = color;
+     if (v_bord_color.w > 0.0f) {
+       FragColor = v_bord_color;
+     } else {
+       FragColor = color;
+     }
+
   }
 )";
 
@@ -147,16 +155,130 @@ uint32_t put_vertice(uint32_t idx, Vertex vertices[MAX_VERTEX_COUNT], glm::vec4 
   return idx;
 }
 
-void sutherland_hodgman() {
+enum Edge { LEFT, RIGHT, BOTTOM, TOP };
+
+bool point_inside(glm::vec2 p, Edge e, glm::vec2 e_min, glm::vec2 e_max) {
+  switch (e) {
+  case LEFT: return p.x >= e_min.x;
+  case RIGHT: return p.x <= e_max.x;
+  case BOTTOM: return p.y >= e_min.y;
+  case TOP: return p.y <= e_max.y;
+  default:
+    return false;
+  }
+}
+
+// Compute intersection of line segment (v1-v2) with clip edge
+glm::vec2 intersec(glm::vec2 v1, glm::vec2 v2, Edge e, glm::vec2 e_min, glm::vec2 e_max) {
+  float dx = v2.x - v1.x;
+  float dy = v2.y - v1.y;
+  float slope = dx / dy;
+  
+  switch (e) {
+  case LEFT:   return glm::vec2(e_min.x, v1.y + (e_min.x - v1.x) / slope);
+  case RIGHT:  return glm::vec2(e_max.x, v1.y + (e_max.x - v1.x) / slope);
+  case BOTTOM: return glm::vec2(v1.x + (e_min.y - v1.y) * slope, e_min.y);
+  case TOP:    return glm::vec2(v1.x + (e_max.y - v1.y) * slope, e_max.y);
+  default:     return v1;
+  }
+}
+
+typedef struct {
+  uint32_t idx;
+  Vertex vertex;
+} Ivertex;
+
+std::vector<Vertex> clip(Vertex v1, std::vector<Vertex> vs, Edge e, glm::vec2 e_min, glm::vec2 e_max) {
+  std::vector<Vertex> pv;
+  
+  for (Vertex v2 : vs) {
+    if (point_inside(glm::vec2(v2.position.x, v2.position.y), e, e_min, e_max)) {
+      if (!point_inside(v1.position, e, e_min, e_max)) {
+	glm::vec2 pos = intersec(glm::vec2(v1.position.x, v1.position.y), glm::vec2(v2.position.x, v2.position.y), e, e_min, e_max);
+	pv.push_back((Vertex){ .position = glm::vec4(pos.x, pos.y, 0.0f, 1.0f), .color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) });
+	
+      }
+      pv.push_back(v2);
+    } else if (point_inside(glm::vec2(v1.position.x, v1.position.y), e, e_min, e_max)) {
+      glm::vec2 pos = intersec(glm::vec2(v1.position.x, v1.position.y), glm::vec2(v2.position.x, v2.position.y), e, e_min, e_max);
+      pv.push_back((Vertex){ .position = glm::vec4(pos.x, pos.y, 0.0f, 1.0f), .color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) });
+    }
+    v1 = v2;
+  }
+
+  return pv;
+}
+
+PolyGon sutherland_hodgman(uint32_t idx, Vertex *vertices, PolyGon p, glm::vec2 e_min, glm::vec2 e_max) {
+  PolyGon p_out;
+  std::vector<Vertex> verts;
+
+  p_out.translate = p.translate;
+  p_out.scale = p.scale;
+  
+  for (uint32_t i = 0; i < p.idxs.size(); i++) {
+    verts.push_back(vertices[p.idxs[i]]);
+  }
+
+  verts = clip(verts.back(), verts, LEFT, e_min, e_max);
+  verts = clip(verts.back(), verts, RIGHT, e_min, e_max);
+  verts = clip(verts.back(), verts, BOTTOM, e_min, e_max);
+  verts = clip(verts.back(), verts, TOP, e_min, e_max);
+
+  std::cout << verts.size() << std::endl;
+  Vertex v1 = verts[0];
+
+  v1.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+  
+  p_out.idxs.push_back(idx);
+  vertices[idx] = verts[0];
+  idx++;
+
+  p_out.idxs.push_back(idx);
+  verts[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+  vertices[idx] = verts[1];
+  idx++;
+
+  p_out.idxs.push_back(idx);
+  verts[2].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+  vertices[idx] = verts[2];
+  idx++;
+
+  Vertex last = verts[2];
+  for (uint32_t i = p_out.idxs.size()-1; i < verts.size(); ++i) {
+    p_out.idxs.push_back(idx);
+    vertices[idx] = v1;
+    idx++;
+    p_out.idxs.push_back(idx);
+    vertices[idx] = last;
+    idx++;
+    p_out.idxs.push_back(idx);
+    verts[i].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    vertices[idx] = verts[i];
+    idx++;
+    last = verts[i];
+  }
+  
+  return p_out;
+}
+
+
+void print_vertex(Vertex v) {
+  std::cout << "vertex: " << glm::to_string(v.position) << std::endl;
+}
+
+
+void print_polygon(Vertex *vertices, uint32_t idx, PolyGon p) {
+  std::cout << "polygon: " << std::endl;
+  for (uint32_t i = 0; i < p.idxs.size(); i++) {
+    print_vertex(vertices[p.idxs[i]]);
+  }
+  std::cout << "finish polygon" << std::endl;
 }
 
 // mouse offset 1 -1
 glm::vec3 mouse_to_gl_point(float x, float y) {
   return glm::vec3((2.0f * x) / WIDTH - 1.0f, 1.0f - (2.0f * y) / HEIGHT, 0.0f);
-}
-
-void print_vertex(Vertex v) {
-  std::cout << "vertex: " << glm::to_string(v.position) << std::endl;
 }
 
 void draw_triangles(uint32_t VAO, uint32_t program, std::vector<PolyGon> poly) {
@@ -165,10 +287,19 @@ void draw_triangles(uint32_t VAO, uint32_t program, std::vector<PolyGon> poly) {
     glm::mat4 translate = glm::translate(glm::mat4(1.0f), p.translate);
     glm::mat4 scale = glm::scale(glm::mat4(1.0f), p.scale);
     glm::mat4 transform = translate * scale;
+    int v_bord_color = glGetUniformLocation(program, "v_bord_color");
     
     glUniformMatrix4fv(v_transform, 1, GL_FALSE, &transform[0][0]);
+    glUniform4f(v_bord_color, -1.0f, -1.0f, -1.0f, -1.0f);
     glBindVertexArray(VAO);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDrawArrays(GL_TRIANGLES, p.idxs[0], p.idxs.size());
+
+    if (p.idxs.size() > 6) {
+      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+      glUniform4f(v_bord_color, 0.1f, 0.4f, 1.0f, 1.0f);  
+      glDrawArrays(GL_TRIANGLES, 0, p.idxs.size());
+    }
   }
   //glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 }
@@ -288,6 +419,27 @@ void loop(GLFWwindow *window) {
     } else if (is_key_pressed(window, GLFW_KEY_DOWN)) {
       translate.y -= 0.05f;
       std::cout << "translated: " << glm::to_string(translate) << std::endl;      
+    } else if (is_key_pressed(window, GLFW_KEY_1)) {
+      if (start_time - click_time > threshold) {
+	click_time = start_time;
+      
+	print_polygon(vertices, idx, f);
+	PolyGon rect = polys[0];
+	Vertex min = vertices[rect.idxs[0]];
+	Vertex max = vertices[rect.idxs[2]];
+	glm::vec4 min_pos = (min.position * rect.scale.x) + glm::vec4(rect.translate.x, rect.translate.y, 0.0f, 0.0f);
+	glm::vec4 max_pos = (max.position * rect.scale.x) + glm::vec4(rect.translate.x, rect.translate.y, 0.0f, 0.0f);
+	PolyGon out = sutherland_hodgman(idx, vertices, f, glm::vec2(min_pos.x, min_pos.y), glm::vec2(max_pos.x, max_pos.y));
+	print_polygon(vertices, idx, out);
+	polys[polys.size() - 1] = out;
+	 
+	f = (PolyGon){
+	  .idxs = {},
+	  .translate = glm::vec3(0.0f),
+	  .scale = glm::vec3(1.0f),
+	};
+	vs.clear();
+      }
     }
 
     
@@ -305,6 +457,7 @@ void loop(GLFWwindow *window) {
       }
 
     } else if (is_mouse_button_pressed(window, GLFW_MOUSE_BUTTON_LEFT)) {
+      std::cout << "polys size: " << polys.size() << std::endl;
       if (start_time - click_time > threshold) {
 	click_time = start_time;
 
@@ -388,15 +541,15 @@ void loop(GLFWwindow *window) {
     else {
       // draw
       {
-	//glClearColor(1.0 * (mouse_pos.x/1000.0f), 1.0 * (mouse_pos.y/1000.0f), 1.0 * (((mouse_pos.x + mouse_pos.y) / 2) / 1000.0f), 1.0);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(1.0 * (mouse_pos.x/1000.0f), 1.0 * (mouse_pos.y/1000.0f), 1.0 * (((mouse_pos.x + mouse_pos.y) / 2) / 1000.0f), 1.0);
+	//glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
       }
     }
 
     if (vs.size() == 3 && polys.size() == 1) {
       std::cout << "add triangle" << std::endl;
       std::vector<uint32_t> iv;
-      for (uint32_t i = 6; i < idx; ++i) {
+      for (uint32_t i = polys.back().idxs.size(); i < idx; ++i) {
 	iv.push_back(i);
       }
       std::cout << iv.size() << std::endl;

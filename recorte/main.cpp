@@ -294,12 +294,6 @@ void draw_triangles(uint32_t VAO, uint32_t program, std::vector<PolyGon> poly) {
     glBindVertexArray(VAO);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDrawArrays(GL_TRIANGLES, p.idxs[0], p.idxs.size());
-
-    if (p.idxs.size() > 6) {
-      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-      glUniform4f(v_bord_color, 0.1f, 0.4f, 1.0f, 1.0f);  
-      glDrawArrays(GL_TRIANGLES, 0, p.idxs.size());
-    }
   }
   //glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 }
